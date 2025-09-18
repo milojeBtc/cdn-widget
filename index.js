@@ -34,11 +34,6 @@
             showFooter: true,
             responsive: true,
             projectId: null,
-            postcode: null,
-            distance: 5,
-            tab: 'landing-page',
-            startYear: null,
-            endYear: null,
             containerId: 'floradex-widget-container',
             loadingTimeout: 30000, // 30 seconds
             retryAttempts: 3
@@ -249,13 +244,9 @@
         /**
          * Creates an instance of FloradexWidget
          * @param {Object} [options={}] - Widget configuration options
-         * @param {string} [options.projectId] - Project identifier
+         * @param {string} [options.projectId] - Project identifier (required)
          * @param {string} [options.theme='light'] - Theme ('light' or 'dark')
          * @param {string} [options.containerId='floradex-widget-container'] - Container element ID
-         * @param {string} [options.height='800px'] - Widget height
-         * @param {string} [options.width='100%'] - Widget width
-         * @param {boolean} [options.showHeader=true] - Show widget header
-         * @param {boolean} [options.showFooter=true] - Show widget footer
          */
         constructor(options = {}) {
             this.settings = { ...FLORADEX_CONFIG.defaults, ...options };
@@ -316,41 +307,14 @@
          * @param {Object} attrs - Data attributes from script tag
          */
         mapDataAttributes(attrs) {
-            const attributeMap = {
-                project: 'projectId',
-                theme: 'theme',
-                height: 'height',
-                width: 'width',
-                postcode: 'postcode',
-                distance: 'distance',
-                tab: 'tab',
-                container: 'containerId',
-                header: 'showHeader',
-                footer: 'showFooter',
-                startYear: 'startYear',
-                endYear: 'endYear'
-            };
+            // Only map the essential data attributes
+            if (attrs.project !== undefined) {
+                this.settings.projectId = attrs.project;
+            }
             
-            Object.entries(attributeMap).forEach(([attr, setting]) => {
-                if (attrs[attr] !== undefined) {
-                    const value = attrs[attr];
-                    
-                    // Type conversion and validation
-                    switch (setting) {
-                        case 'distance':
-                        case 'startYear':
-                        case 'endYear':
-                            this.settings[setting] = parseInt(value, 10) || 0;
-                            break;
-                        case 'showHeader':
-                        case 'showFooter':
-                            this.settings[setting] = value === 'true';
-                            break;
-                        default:
-                            this.settings[setting] = value;
-                    }
-                }
-            });
+            if (attrs.theme !== undefined) {
+                this.settings.theme = attrs.theme;
+            }
             
             this.log('debug', 'Mapped settings:', this.settings);
         }
@@ -517,34 +481,14 @@
         }
         
         /**
-         * Build the widget URL with all parameters
+         * Build the widget URL with essential parameters
          */
         buildWidgetUrl() {
             const params = new URLSearchParams();
             
-            // Add all relevant parameters
+            // Add essential parameters only
             if (this.settings.projectId) {
                 params.append('project', this.settings.projectId);
-            }
-            
-            if (this.settings.postcode) {
-                params.append('postcode', this.settings.postcode);
-            }
-            
-            if (this.settings.distance) {
-                params.append('distance', this.settings.distance);
-            }
-            
-            if (this.settings.tab) {
-                params.append('tab', this.settings.tab);
-            }
-            
-            if (this.settings.startYear) {
-                params.append('start_year', this.settings.startYear);
-            }
-            
-            if (this.settings.endYear) {
-                params.append('end_year', this.settings.endYear);
             }
             
             // Add theme parameter
@@ -970,43 +914,45 @@
      * Auto-initialization function
      */
     function autoInitialize() {
+        console.log('Floradex: Auto-initializing...', {
+            readyState: document.readyState,
+            bodyExists: !!document.body,
+            headExists: !!document.head
+        });
+        
         // Look for container elements with data-floradex attribute
         const containers = document.querySelectorAll('[data-floradex]');
-        console.log('containers ===>', containers);
+        console.log('Floradex: Found containers with data-floradex:', containers.length, containers);
+        
+        // Look for default container
+        const defaultContainer = document.getElementById('floradex-widget-container');
+        console.log('Floradex: Found default container:', !!defaultContainer, defaultContainer);
+        
+        // Look for script tags with data attributes
+        const scripts = document.querySelectorAll('script[src*="floradex.js"]');
+        const scriptWithData = Array.from(scripts).find(s => {
+            return s.hasAttribute('data-project') || s.hasAttribute('data-theme');
+        });
+        console.log('Floradex: Found script with data attributes:', !!scriptWithData, scriptWithData);
         
         containers.forEach(container => {
             const options = {};
             
-            // Parse data attributes
+            // Parse essential data attributes only
             if (container.dataset.project) options.projectId = container.dataset.project;
             if (container.dataset.theme) options.theme = container.dataset.theme;
-            if (container.dataset.height) options.height = container.dataset.height;
-            if (container.dataset.width) options.width = container.dataset.width;
-            if (container.dataset.postcode) options.postcode = container.dataset.postcode;
-            if (container.dataset.distance) options.distance = parseInt(container.dataset.distance);
-            if (container.dataset.tab) options.tab = container.dataset.tab;
-            if (container.dataset.header) options.showHeader = container.dataset.header === 'true';
-            if (container.dataset.footer) options.showFooter = container.dataset.footer === 'true';
-            if (container.dataset.startYear) options.startYear = parseInt(container.dataset.startYear);
-            if (container.dataset.endYear) options.endYear = parseInt(container.dataset.endYear);
             
             options.containerId = container.id || 'floradex-widget-' + Math.random().toString(36).substr(2, 9);
             if (!container.id) container.id = options.containerId;
             
+            console.log('Floradex: Initializing widget for container:', options);
             // Initialize widget
             new FloradexWidget(options);
         });
         
         // If no containers found, look for the default container and check for script tag data attributes
         if (containers.length === 0) {
-            const defaultContainer = document.getElementById('floradex-widget-container');
             if (defaultContainer) {
-                // Check if there's a script tag with data attributes
-                const scripts = document.querySelectorAll('script[src*="floradex.js"]');
-                const scriptWithData = Array.from(scripts).find(s => {
-                    return s.hasAttribute('data-project') || s.hasAttribute('data-theme');
-                });
-                
                 if (scriptWithData) {
                     console.log('Floradex: Auto-initializing with script tag data attributes');
                     // Initialize with default container - the widget will read data attributes from script tag
@@ -1015,6 +961,13 @@
                     console.log('Floradex: No script tag with data attributes found, initializing with defaults');
                     new FloradexWidget({ containerId: 'floradex-widget-container' });
                 }
+            } else {
+                console.log('Floradex: No containers found, waiting for DOM...');
+                // Wait a bit more for DOM to be ready
+                setTimeout(() => {
+                    console.log('Floradex: Retrying after timeout...');
+                    autoInitialize();
+                }, 100);
             }
         }
     }
@@ -1023,15 +976,49 @@
      * Auto-initialization when DOM is ready
      */
     function initializeWidgets() {
+        console.log('Floradex: initializeWidgets called', {
+            readyState: document.readyState,
+            documentComplete: document.readyState === 'complete',
+            documentInteractive: document.readyState === 'interactive',
+            documentLoading: document.readyState === 'loading'
+        });
+        
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', autoInitialize);
+            console.log('Floradex: DOM still loading, waiting for DOMContentLoaded');
+            document.addEventListener('DOMContentLoaded', () => {
+                console.log('Floradex: DOMContentLoaded event fired');
+                autoInitialize();
+            });
+        } else if (document.readyState === 'interactive') {
+            console.log('Floradex: DOM interactive, initializing immediately');
+            autoInitialize();
+        } else if (document.readyState === 'complete') {
+            console.log('Floradex: DOM complete, initializing immediately');
+            autoInitialize();
         } else {
+            console.log('Floradex: Unknown readyState, initializing immediately');
             autoInitialize();
         }
     }
     
-    // Initialize widgets
-    initializeWidgets();
+    // Initialize widgets with multiple fallbacks
+    if (document.readyState === 'loading') {
+        // DOM is still loading
+        document.addEventListener('DOMContentLoaded', initializeWidgets);
+    } else {
+        // DOM is already ready
+        initializeWidgets();
+    }
+    
+    // Additional fallback for slow-loading pages
+    window.addEventListener('load', () => {
+        console.log('Floradex: Window load event fired, checking for missed containers');
+        const existingWidgets = document.querySelectorAll('[id^="floradex-widget"]');
+        if (existingWidgets.length === 0) {
+            console.log('Floradex: No widgets found, retrying initialization');
+            autoInitialize();
+        }
+    });
     
     /**
      * Global API for manual widget management
@@ -1060,6 +1047,22 @@
          */
         destroyAll: () => {
             Floradex.getInstances().forEach(widget => widget.destroy());
+        },
+        
+        /**
+         * Manually initialize widgets (fallback for timing issues)
+         */
+        init: () => {
+            console.log('Floradex: Manual initialization called');
+            autoInitialize();
+        },
+        
+        /**
+         * Check if widgets are initialized
+         * @returns {boolean} True if any widgets are found
+         */
+        isInitialized: () => {
+            return Floradex.getInstances().length > 0;
         },
         
         /**
