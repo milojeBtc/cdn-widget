@@ -972,6 +972,7 @@
     function autoInitialize() {
         // Look for container elements with data-floradex attribute
         const containers = document.querySelectorAll('[data-floradex]');
+        console.log('containers ===>', containers);
         
         containers.forEach(container => {
             const options = {};
