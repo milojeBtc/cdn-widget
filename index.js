@@ -1,12 +1,11 @@
 /**
- * Floradex Biodiversity Dashboard - Dynamic JavaScript Widget
- * Version: 2.1.0
+ * Floradex Biodiversity Dashboard - JavaScript Widget
+ * Version: 2.0.0
  * 
  * A standalone widget that can be embedded on external sites with dynamic project parameters.
- * This version includes workarounds for the current Shiny app limitations.
  * 
  * Usage:
- * <script src="https://cdn.pollenize.org.uk/widget/floradex-dynamic.js" data-project="bodmin-airfield" data-theme="light"></script>
+ * <script src="https://cdn.yourdomain.com/widget/floradex.js" data-project="bodmin-airfield" data-theme="light"></script>
  * <div id="floradex-widget-container"></div>
  */
 
@@ -15,7 +14,7 @@
     
     // Configuration and constants
     const FLORADEX_CONFIG = {
-        // Default deployment URL (can be overridden)
+        // Default deployment URL
         baseUrl: 'https://chirag1234.shinyapps.io/Floradex-live-demo/',
         
         // Default settings
@@ -49,55 +48,39 @@
             }
         },
         
-        // Project configurations - All projects are now available
+        // Available projects
         projects: {
             'bodmin-airfield': {
                 name: 'Bodmin Airfield',
-                description: 'Biodiversity monitoring at Bodmin Airfield',
-                available: true,
-                fallbackProject: null
+                description: 'Biodiversity monitoring at Bodmin Airfield'
             },
             'tamar-valley-centre': {
                 name: 'Tamar Valley Centre',
-                description: 'Biodiversity tracking in Tamar Valley',
-                available: true,
-                fallbackProject: null
+                description: 'Biodiversity tracking in Tamar Valley'
             },
             'cornish-essential-oils': {
                 name: 'Cornish Essential Oils',
-                description: 'Plant diversity monitoring',
-                available: true,
-                fallbackProject: null
+                description: 'Plant diversity monitoring'
             },
             'lost-gardens-of-heligan': {
                 name: 'Lost Gardens of Heligan',
-                description: 'Garden biodiversity analysis',
-                available: true,
-                fallbackProject: null
+                description: 'Garden biodiversity analysis'
             },
             'hemsworth-farm-master': {
                 name: 'Hemsworth Farm Master',
-                description: 'Agricultural biodiversity monitoring',
-                available: true,
-                fallbackProject: null
+                description: 'Agricultural biodiversity monitoring'
             },
             'devonport-park-nature-counts': {
                 name: 'Devonport Park Nature Counts',
-                description: 'Urban park biodiversity tracking',
-                available: true,
-                fallbackProject: null
+                description: 'Urban park biodiversity tracking'
             },
             'city-college-plymouth': {
                 name: 'City College Plymouth',
-                description: 'Educational institution biodiversity',
-                available: true,
-                fallbackProject: null
+                description: 'Educational institution biodiversity'
             },
             'mvv-plymouth': {
                 name: 'MVV Plymouth',
-                description: 'MVV Plymouth biodiversity project',
-                available: true,
-                fallbackProject: null
+                description: 'MVV Plymouth biodiversity project'
             }
         }
     };
@@ -128,11 +111,17 @@
          * Extract configuration from script tag data attributes
          */
         extractScriptAttributes() {
-            const scripts = document.querySelectorAll('script[src*="floradex"]');
-            const script = Array.from(scripts).find(s => s.src.includes('floradex'));
+            // Find the script tag that loaded this file
+            const scripts = document.querySelectorAll('script[src*="floradex.js"]');
+            const script = Array.from(scripts).find(s => {
+                // Check if this script has data attributes
+                return s.hasAttribute('data-project') || s.hasAttribute('data-theme');
+            });
             
             if (script) {
                 const attrs = script.dataset;
+                
+                console.log('Floradex: Found script with data attributes:', attrs);
                 
                 // Map data attributes to settings
                 if (attrs.project) this.settings.projectId = attrs.project;
@@ -147,6 +136,10 @@
                 if (attrs.footer !== undefined) this.settings.showFooter = attrs.footer === 'true';
                 if (attrs.startYear) this.settings.startYear = parseInt(attrs.startYear);
                 if (attrs.endYear) this.settings.endYear = parseInt(attrs.endYear);
+                
+                console.log('Floradex: Extracted settings:', this.settings);
+            } else {
+                console.log('Floradex: No script tag with data attributes found');
             }
         }
         
@@ -170,14 +163,27 @@
                     return;
                 }
                 
+                // Validate project exists
+                if (!FLORADEX_CONFIG.projects[this.settings.projectId]) {
+                    console.error('Floradex: Project not found:', this.settings.projectId);
+                    this.showError(`Project "${this.settings.projectId}" is not available`);
+                    return;
+                }
+                
                 // Add header and footer if enabled
                 this.addHeaderFooter();
                 
                 // Apply responsive styles
                 this.applyStyles();
                 
-                // Handle project-specific data loading
-                await this.handleProjectData();
+                // Set current project
+                this.currentProject = this.settings.projectId;
+                
+                // Build widget URL with parameters
+                const widgetUrl = this.buildWidgetUrl();
+                
+                // Create and configure iframe
+                this.createIframe(widgetUrl);
                 
                 // Mark as initialized
                 this.isInitialized = true;
@@ -195,34 +201,6 @@
                 this.showError('Failed to initialize widget');
             }
         }
-        
-        /**
-         * Handle project-specific data loading
-         */
-        async handleProjectData() {
-            if (!this.settings.projectId) {
-                this.showError('Project ID is required');
-                return;
-            }
-            
-            // Get project configuration
-            const projectConfig = FLORADEX_CONFIG.projects[this.settings.projectId];
-            
-            if (!projectConfig) {
-                this.showError(`Project "${this.settings.projectId}" is not recognized. Please check the project ID.`);
-                return;
-            }
-            
-            // Set current project
-            this.currentProject = this.settings.projectId;
-            
-            // Build widget URL with parameters
-            const widgetUrl = this.buildWidgetUrl();
-            
-            // Create and configure iframe
-            this.createIframe(widgetUrl);
-        }
-        
         
         /**
          * Build the widget URL with all parameters
@@ -538,11 +516,24 @@
             new FloradexWidget(options);
         });
         
-        // If no containers found, look for the default container
+        // If no containers found, look for the default container and check for script tag data attributes
         if (containers.length === 0) {
             const defaultContainer = document.getElementById('floradex-widget-container');
             if (defaultContainer) {
-                new FloradexWidget({ containerId: 'floradex-widget-container' });
+                // Check if there's a script tag with data attributes
+                const scripts = document.querySelectorAll('script[src*="floradex.js"]');
+                const scriptWithData = Array.from(scripts).find(s => {
+                    return s.hasAttribute('data-project') || s.hasAttribute('data-theme');
+                });
+                
+                if (scriptWithData) {
+                    console.log('Floradex: Auto-initializing with script tag data attributes');
+                    // Initialize with default container - the widget will read data attributes from script tag
+                    new FloradexWidget({ containerId: 'floradex-widget-container' });
+                } else {
+                    console.log('Floradex: No script tag with data attributes found, initializing with defaults');
+                    new FloradexWidget({ containerId: 'floradex-widget-container' });
+                }
             }
         }
     }
