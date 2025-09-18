@@ -280,13 +280,19 @@
          */
         extractScriptAttributes() {
             try {
-                const scripts = document.querySelectorAll('script[src*="floradex.js"]');
+                // Look for both local and CDN script files
+                const scripts = document.querySelectorAll('script[src*="floradex.js"], script[src*="index.js"]');
                 const script = Array.from(scripts).find(s => 
                     s.hasAttribute('data-project') || s.hasAttribute('data-theme')
                 );
                 
                 if (!script) {
                     this.log('debug', 'No script tag with data attributes found');
+                    this.log('debug', 'Available scripts:', Array.from(scripts).map(s => ({ 
+                        src: s.src, 
+                        hasDataProject: s.hasAttribute('data-project'), 
+                        hasDataTheme: s.hasAttribute('data-theme') 
+                    })));
                     return;
                 }
                 
@@ -928,12 +934,13 @@
         const defaultContainer = document.getElementById('floradex-widget-container');
         console.log('Floradex: Found default container:', !!defaultContainer, defaultContainer);
         
-        // Look for script tags with data attributes
-        const scripts = document.querySelectorAll('script[src*="floradex.js"]');
+        // Look for script tags with data attributes (check for both local and CDN URLs)
+        const scripts = document.querySelectorAll('script[src*="floradex.js"], script[src*="index.js"]');
         const scriptWithData = Array.from(scripts).find(s => {
             return s.hasAttribute('data-project') || s.hasAttribute('data-theme');
         });
         console.log('Floradex: Found script with data attributes:', !!scriptWithData, scriptWithData);
+        console.log('Floradex: All scripts found:', scripts.length, Array.from(scripts).map(s => s.src));
         
         containers.forEach(container => {
             const options = {};
@@ -952,14 +959,33 @@
         
         // If no containers found, look for the default container and check for script tag data attributes
         if (containers.length === 0) {
+            const defaultContainer = document.getElementById('floradex-widget-container');
             if (defaultContainer) {
+                // Check if there's a script tag with data attributes (check for both local and CDN URLs)
+                const scripts = document.querySelectorAll('script[src*="floradex.js"], script[src*="index.js"]');
+                const scriptWithData = Array.from(scripts).find(s => {
+                    return s.hasAttribute('data-project') || s.hasAttribute('data-theme');
+                });
+                
                 if (scriptWithData) {
                     console.log('Floradex: Auto-initializing with script tag data attributes');
                     // Initialize with default container - the widget will read data attributes from script tag
                     new FloradexWidget({ containerId: 'floradex-widget-container' });
                 } else {
-                    console.log('Floradex: No script tag with data attributes found, initializing with defaults');
-                    new FloradexWidget({ containerId: 'floradex-widget-container' });
+                    console.log('Floradex: No script tag with data attributes found, checking for global config');
+                    // Check for global configuration
+                    const globalConfig = window.FloradexConfig || {};
+                    if (globalConfig.projectId) {
+                        console.log('Floradex: Using global config:', globalConfig);
+                        new FloradexWidget({ 
+                            containerId: 'floradex-widget-container',
+                            projectId: globalConfig.projectId,
+                            theme: globalConfig.theme || 'light'
+                        });
+                    } else {
+                        console.log('Floradex: No configuration found, initializing with defaults');
+                        new FloradexWidget({ containerId: 'floradex-widget-container' });
+                    }
                 }
             } else {
                 console.log('Floradex: No containers found, waiting for DOM...');
